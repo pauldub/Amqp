@@ -34,15 +34,21 @@ defmodule Amqp do
 		end
 	
 		# Send a message to an exchange, exchange, key, and message are binaries ""
-		def send(exchange,key,message,server) do
-			publish = :'basic.publish'.new exchange: exchange, routing_key: key
+		def send(exchange,key,message,opts \\ [persistent: false], server) do
+			publish = :'basic.publish'.new exchange: exchange, routing_key: key, persistent: opts[:persistent]
 			msg = :amqp_msg.new payload: message
 			:amqp_channel.cast server.channel, publish, msg
 		end
 
-		# Binds a exchange key and queue together setting up a subscription
 		def receive(exchange,key,queue,server) do
-			:amqp_channel.call server.channel, :"exchange.declare".new exchange: exchange, type: "topic", auto_delete: true
+      server.receive(exchange, key, queue, type: "topic")
+    end
+
+		# Binds a exchange key and queue together setting up a subscription
+		def receive(exchange,key,queue,opts \\ [persitent: false], server) do
+      type = opts[:type]
+			:amqp_channel.call server.channel, :"exchange.declare".
+      new exchange: exchange, type: type, auto_delete: true, persistent: opts[:persistent]
 			:amqp_channel.call server.channel, :"queue.declare".new queue: queue, auto_delete: true
 			:amqp_channel.call server.channel, :"queue.bind".new queue: queue, exchange: exchange, routing_key: key
 			{ :"basic.consume_ok", ctag } = :amqp_channel.call server.channel, :"basic.consume".new queue: queue
@@ -78,6 +84,9 @@ defmodule Amqp do
       case :lists.nthtail(1, Regex.run(~r{(amqp://([^:]+):([^@]+)@([^:]+):(\d+)/([^/]*))(/([^/]+)/([^/]+)/*([^/]*)/*([^/]*)/*([^/]*)/)*}, URI.decode(uri))) do
 			                                    [ connstr, user, password, host, port, vhost, exchange, key, queue, destination, route ] -> 
 			                                      self.connstr(connstr).user(user).password(password).host(host).port(port).vhost(vhost).exchange(exchange).key(key).queue(queue).destination(destination).route(route)	
+			                                    [ connstr, user, password , host, port, vhost , _ , exchange,  key , queue, _, _ |  _] -> 
+                                            IO.puts "#{exchange}, #{key}, #{queue}"
+			                                      self.connstr(connstr).user(user).password(password).host(host).port(port).vhost(vhost).exchange(exchange).key(key).queue(queue)
 			                                    [ connstr, user, password, host, port, vhost ] -> 
 			                                      self.connstr(connstr).user(user).password(password).host(host).port(port).vhost(vhost)
                                         end
