@@ -75,8 +75,12 @@ defmodule Amqp do
 			vhost: "/", exchange: "test-in", key: "#", queue: "test-in", destination: "test-out", route: "test" do
 		def parse(uri, self) when is_list(uri) do self.parse( :binary.list_to_bin ) end
 		def parse(uri, self) when is_binary(uri) do
-			[ connstr, user, password, host, port, vhost, exchange, key, queue, destination, route ] = :lists.nthtail 1, Regex.run(%r{(amqp://([^:]+):([^@]+)@([^:]+):(\d+)/([^/]*))/([^/]+)/([^/]+)/*([^/]*)/*([^/]*)/*([^/]*)/*}, URI.decode(uri))
-			self.connstr(connstr).user(user).password(password).host(host).port(port).vhost(vhost).exchange(exchange).key(key).queue(queue).destination(destination).route(route)	
+      case :lists.nthtail(1, Regex.run(~r{(amqp://([^:]+):([^@]+)@([^:]+):(\d+)/([^/]*))(/([^/]+)/([^/]+)/*([^/]*)/*([^/]*)/*([^/]*)/)*}, URI.decode(uri))) do
+			                                    [ connstr, user, password, host, port, vhost, exchange, key, queue, destination, route ] -> 
+			                                      self.connstr(connstr).user(user).password(password).host(host).port(port).vhost(vhost).exchange(exchange).key(key).queue(queue).destination(destination).route(route)	
+			                                    [ connstr, user, password, host, port, vhost ] -> 
+			                                      self.connstr(connstr).user(user).password(password).host(host).port(port).vhost(vhost)
+                                        end
 		end
 	end
 end
